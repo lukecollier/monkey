@@ -1,6 +1,7 @@
 use crate::token::{lookup_ident, Token};
 
-struct Lexer<'a> {
+#[derive(Debug)]
+pub struct Lexer<'a> {
     input: &'a [u8],
     position: usize,
     read_position: usize,
@@ -20,7 +21,7 @@ impl Iterator for Lexer<'_> {
 
 // todo: Impl iterator for this
 impl<'a> Lexer<'a> {
-    fn new(input: &'a str) -> Self {
+    pub fn new(input: &'a str) -> Self {
         let mut l = Lexer {
             input: input.as_bytes(),
             position: 0,
@@ -73,12 +74,11 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
         if self.read_position > self.input.len() {
             return Token::EOF;
         }
-        dbg!(self.ch as char);
         let token = match self.ch {
             b'+' => Token::Plus,
             b'(' => Token::LParen,
