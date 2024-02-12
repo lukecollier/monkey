@@ -23,11 +23,13 @@ pub enum Node {
 #[derive(Debug, Eq, PartialEq)]
 pub enum Statement {
     LetStatement(LetStatement),
+    ReturnStatement(ReturnStatement),
 }
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Statement::LetStatement(inner) => write!(f, "{}", inner.to_string()),
+            Statement::LetStatement(inner) => write!(f, "{}", inner),
+            Statement::ReturnStatement(inner) => write!(f, "{}", inner),
         }
     }
 }
@@ -65,6 +67,16 @@ pub struct LetStatement {
 impl Display for LetStatement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "let {} = {};", self.name, self.value)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct ReturnStatement {
+    pub return_value: Expression,
+}
+impl Display for ReturnStatement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "return {};", self.return_value)
     }
 }
 
