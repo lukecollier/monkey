@@ -149,5 +149,84 @@ peek_token_is(Token::Ident("".to_string());
 ```
 yuck.
 
+A better attempt is to split each function for expect_peek_assign which we could implement like the below.
+```rs
+fn expect_peek_assign(&mut self) -> Result<()> {
+    match &self.peek_token {
+        Token::Assign => return Ok(()),
+        _ => Err(anyhow!(self.peek_error(&Token::Assign))),
+    }
+}
 
+fn peek_error(&mut self, token: &Token) -> String {
+    format!(
+        "expected next token to be {:?}, got {:?} instead",
+        token, self.peek_token
+    )
+}
+```
+We still get the weirdities with passing a dummy token to the peek_error but all in all we get something approximating the go approach. It goes to hightlight how the flexibility can reduce vast amounts of code. For this use case the negatives are basically non existent, we're just writing more boilerplate in rust. This statement is muted as we're not 1-1 mapping the go code to rust, but a decent flow I found was abstracting the common control flows to their own helper expect functions while using the pattern matching for idents and things that were variable using the match statements.
 
+```rs
+fn parse_let_statement(&mut self) -> Result<LetStatement> {
+    let name = match &self.peek_token() {
+        Token::Ident(ident) => Identifier {
+            value: ident.to_string(),
+        },
+        token => return Err(anyhow!(self.peek_error(&Token::Ident("".to_string())))),
+    };
+    self.next_token();
+    self.expect_peek_assign()?;
+    self.next_token();
+    let value = self.parse_expression(Precedence::Lowest)?;
+    self.expect_peek_semicolon()?;
+    Ok(LetStatement { value, name })
+}
+```
+This let's the error message be consistent(ish) while also giving us a way to get the information out of our tokens.
+
+Another curious difference is since we've implemented our lexer as a iterator we can get the peekable elements, the original rust port had this:
+```rs
+fn next_token(&mut self) {
+    // todo: Fix this clone
+    self.cur_token = self.peek_token.clone();
+    self.peek_token = self.l.next_token();
+}
+```
+Which isn't very good, we're cloing and that's _relatively_ expensive! So by calling changing our struct we can make our lexer peekable and use that instead, this offloads all the details to the lexer and gives us a simple interface, the major change is we define a method to get the iterators current peek, this avoids clone! Neat.
+```rs
+#[derive(Debug)]
+struct Parser<'a> {
+    l: Peekable<Lexer<'a>>,
+    cur_token: Token,
+    errors: Vec<String>,
+}
+
+impl<'a> Parser<'a> {
+    fn new(l: Lexer<'a>) -> Parser<'a> {
+        let mut peekable_l = l.peekable();
+        // also we no longer need to utilise the next_token to init
+        // we pre get the first token (or EOF)
+        let cur_token = peekable_l.next().unwrap_or(Token::EOF);
+        let p = Self {
+            l: peekable_l,
+            cur_token,
+            errors: vec![],
+        };
+        p
+    }
+    //...
+}
+
+//...
+fn next_token(&mut self) {
+    self.cur_token = self.l.next().unwrap_or(Token::EOF);
+}
+
+fn peek_token(&mut self) -> &Token {
+    self.l.peek().unwrap_or(&Token::EOF)
+}
+```
+The above optimisations were kind of overhead though! Go handles this case fairly opaquely and I belive it'll be copying data under the hood as it's a primative type. This means our rust implementation should be more efficient as it's just a reference.
+
+But the issue with this optimisation is it's steeped in skill issues, basically how much do you know about the memory model of rust and it's structures? Go just _does the thing_ well enough that you probably wouldn't care that it's copying.

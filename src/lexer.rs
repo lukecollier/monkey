@@ -8,7 +8,7 @@ pub struct Lexer<'a> {
     ch: u8,
 }
 
-impl Iterator for Lexer<'_> {
+impl<'a> Iterator for Lexer<'a> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
