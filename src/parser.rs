@@ -153,10 +153,17 @@ impl<'a> Parser<'a> {
                 let function_literal = self.parse_function_literal()?;
                 Ok(Expression::FunctionLiteral(function_literal))
             }
-            Token::LParen => todo!("lparen"),
+            Token::LParen => self.parse_grouped_expression(),
             Token::If => todo!("if"),
             token => Err(anyhow!("no prefix for token {}", token)),
         }
+    }
+
+    fn parse_grouped_expression(&mut self) -> Result<Expression> {
+        self.next_token();
+        let expression = self.parse_expression(Precedence::Lowest)?;
+        self.expect_peek_rparen()?;
+        Ok(expression)
     }
 
     fn parse_function_parameters(&mut self) -> Result<Vec<Identifier>> {
@@ -218,12 +225,9 @@ impl<'a> Parser<'a> {
         self.next_token();
         args.push(self.parse_expression(Precedence::Lowest)?);
         while self.peek_token() == &Token::Comma {
-            dbg!(&self.cur_token);
-            dbg!(&self.peek_token());
             self.next_token();
             self.next_token();
             let expr = self.parse_expression(Precedence::Lowest);
-            dbg!(&expr);
             args.push(expr?);
         }
         Ok(args)
@@ -484,8 +488,8 @@ mod tests {
         assert_eq!(parsed, expected);
     }
 
-    // #[test]
-    fn operator_precedence_parsing() {
+    #[test]
+    fn grouped_expression_parsing() {
         let (parsed, expected): (Vec<String>, Vec<String>) = [
             ("a + add(b * c) + d", "((a + add((b * c))) + d)"),
             (
