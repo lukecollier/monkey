@@ -79,6 +79,22 @@ impl Display for CallExpression {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
+pub struct IfExpression {
+    pub condition: Rc<Expression>,
+    pub consequence: BlockStatement,
+    pub alternative: BlockStatement,
+}
+impl Display for IfExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "if {} {} else {}",
+            &self.condition, &self.consequence, &self.alternative,
+        )
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Expression {
     PrefixExpression(PrefixExpression),
     InfixExpression(InfixExpression),
@@ -87,6 +103,7 @@ pub enum Expression {
     Integer(IntegerLiteral),
     FunctionLiteral(FunctionLiteral),
     Call(CallExpression),
+    IfExpression(IfExpression),
 }
 impl TryInto<Callee> for Expression {
     type Error = anyhow::Error;
@@ -111,6 +128,7 @@ impl Display for Expression {
             Expression::InfixExpression(expr) => write!(f, "{}", expr.to_string()),
             Expression::FunctionLiteral(expr) => write!(f, "{}", expr),
             Expression::Call(expr) => write!(f, "{}", expr),
+            Expression::IfExpression(expr) => write!(f, "{}", expr),
         }
     }
 }
@@ -118,6 +136,13 @@ impl Display for Expression {
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct BlockStatement {
     pub statements: Vec<Statement>,
+}
+impl BlockStatement {
+    pub fn empty() -> BlockStatement {
+        BlockStatement {
+            statements: Vec::new(),
+        }
+    }
 }
 impl Display for BlockStatement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -155,6 +180,13 @@ impl Display for InfixExpression {
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Identifier {
     pub value: String,
+}
+impl Identifier {
+    pub fn from_str(str: &str) -> Self {
+        Identifier {
+            value: str.to_string(),
+        }
+    }
 }
 impl Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

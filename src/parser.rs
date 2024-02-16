@@ -3,8 +3,8 @@ use std::iter::Peekable;
 use crate::{
     ast::{
         BlockStatement, Boolean, CallExpression, Callee, Expression, FunctionLiteral, Identifier,
-        InfixExpression, IntegerLiteral, LetStatement, PrefixExpression, Program, ReturnStatement,
-        Statement,
+        IfExpression, InfixExpression, IntegerLiteral, LetStatement, PrefixExpression, Program,
+        ReturnStatement, Statement,
     },
     lexer::Lexer,
     token::Token,
@@ -154,8 +154,32 @@ impl<'a> Parser<'a> {
                 Ok(Expression::FunctionLiteral(function_literal))
             }
             Token::LParen => self.parse_grouped_expression(),
-            Token::If => todo!("if"),
+            Token::If => self.parse_if_expression(),
             token => Err(anyhow!("no prefix for token {}", token)),
+        }
+    }
+
+    fn parse_if_expression(&mut self) -> Result<Expression> {
+        self.expect_peek_lparen()?;
+        self.next_token();
+        let condition = self.parse_expression(Precedence::Lowest)?;
+        self.expect_peek_rparen()?;
+        let consequence = self.parse_block_statement()?;
+        dbg!("not here");
+        if self.peek_token() == &Token::Else {
+            self.next_token();
+            let alternative = self.parse_block_statement()?;
+            return Ok(Expression::IfExpression(IfExpression {
+                condition: condition.into(),
+                consequence,
+                alternative,
+            }));
+        } else {
+            return Ok(Expression::IfExpression(IfExpression {
+                condition: condition.into(),
+                consequence,
+                alternative: BlockStatement::empty(),
+            }));
         }
     }
 
@@ -360,8 +384,8 @@ impl<'a> Parser<'a> {
 mod tests {
 
     use crate::ast::{
-        Boolean, Callee, Expression, FunctionLiteral, Identifier, InfixExpression, IntegerLiteral,
-        LetStatement, PrefixExpression, Program, Statement,
+        Boolean, Callee, Expression, FunctionLiteral, Identifier, IfExpression, InfixExpression,
+        IntegerLiteral, LetStatement, PrefixExpression, Program, Statement,
     };
 
     use super::*;
@@ -482,6 +506,62 @@ mod tests {
                             right: Expression::Integer(IntegerLiteral { value: 5 }).into(),
                         }),
                     ],
+                },
+            ))],
+        };
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn else_expression_parse() {
+        let lexer = crate::lexer::Lexer::new("if (x < y) { x } else { y }");
+        let mut parser = Parser::new(lexer);
+        let parsed = parser.parse_program().unwrap();
+        let expected = Program {
+            statements: vec![Statement::ExpressionStatement(Expression::IfExpression(
+                IfExpression {
+                    condition: Expression::InfixExpression(InfixExpression {
+                        left: Expression::Identifier(Identifier::from_str("x")).into(),
+                        operator: "<".to_string(),
+                        right: Expression::Identifier(Identifier::from_str("y")).into(),
+                    })
+                    .into(),
+                    consequence: BlockStatement {
+                        statements: vec![Statement::ExpressionStatement(Expression::Identifier(
+                            Identifier::from_str("x"),
+                        ))],
+                    },
+                    alternative: BlockStatement {
+                        statements: vec![Statement::ExpressionStatement(Expression::Identifier(
+                            Identifier::from_str("y"),
+                        ))],
+                    },
+                },
+            ))],
+        };
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn if_statement_expression_parsing() {
+        let lexer = crate::lexer::Lexer::new("if (x < y) { x }");
+        let mut parser = Parser::new(lexer);
+        let parsed = parser.parse_program().unwrap();
+        let expected = Program {
+            statements: vec![Statement::ExpressionStatement(Expression::IfExpression(
+                IfExpression {
+                    condition: Expression::InfixExpression(InfixExpression {
+                        left: Expression::Identifier(Identifier::from_str("x")).into(),
+                        operator: "<".to_string(),
+                        right: Expression::Identifier(Identifier::from_str("y")).into(),
+                    })
+                    .into(),
+                    consequence: BlockStatement {
+                        statements: vec![Statement::ExpressionStatement(Expression::Identifier(
+                            Identifier::from_str("x"),
+                        ))],
+                    },
+                    alternative: BlockStatement::empty(),
                 },
             ))],
         };
