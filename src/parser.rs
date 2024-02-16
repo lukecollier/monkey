@@ -38,14 +38,14 @@ fn precedence(token: &Token) -> Precedence {
     }
 }
 #[derive(Debug)]
-struct Parser<'a> {
+pub struct Parser<'a> {
     l: Peekable<Lexer<'a>>,
     cur_token: Token,
     errors: Vec<String>,
 }
 
 impl<'a> Parser<'a> {
-    fn new(l: Lexer<'a>) -> Parser<'a> {
+    pub fn new(l: Lexer<'a>) -> Parser<'a> {
         let mut peekable_l = l.peekable();
         let cur_token = peekable_l.next().unwrap_or(Token::EOF);
         let p = Self {
@@ -56,7 +56,7 @@ impl<'a> Parser<'a> {
         p
     }
 
-    fn parse_program(&mut self) -> Result<Program> {
+    pub fn parse_program(&mut self) -> Result<Program> {
         let mut program = Program {
             // Todo: Estimate capacity required better
             statements: Vec::with_capacity(512),
@@ -72,7 +72,7 @@ impl<'a> Parser<'a> {
             Ok(program)
         } else {
             // can actually return the list here
-            Err(anyhow!(self.errors.join(",")))
+            Err(anyhow!(self.errors.join(", ")))
         }
     }
 
