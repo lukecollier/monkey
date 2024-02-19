@@ -230,3 +230,28 @@ fn peek_token(&mut self) -> &Token {
 The above optimisations were kind of overhead though! Go handles this case fairly opaquely and I belive it'll be copying data under the hood as it's a primative type. This means our rust implementation should be more efficient as it's just a reference.
 
 But the issue with this optimisation is it's steeped in skill issues, basically how much do you know about the memory model of rust and it's structures? Go just _does the thing_ well enough that you probably wouldn't care that it's copying.
+
+
+## Implementing Evaluator
+
+Evaluation seem's to be where rust comes into it's own, the gaurentee's from the compiler and trait system play really well here.
+
+Compared with the go solution the compiler ensures we tackle every path and clearly shows us all the posibilities. The trait system is very useful as we can define a trait that exposes a single function, allowing us to easily 
+
+A great example of the benefits is Enum's, in the go variant they use const to instantiate and object in rust we can use an enum. This gives us the singleton property but as a language structure and helps prevent abuse.
+```rs
+fn eval<'a>(self: &'a Self) -> Object<'a> {
+    match self {
+        //...
+        Expression::Boolean(crate::ast::Boolean { value: true }) => Object::Bool(Boolean::True),
+        Expression::Boolean(crate::ast::Boolean { value: false }) => {
+            Object::Bool(Boolean::False)
+        }
+        Expression::IntegerLiteral(literal) => Object::Int(Integer {
+            value: &literal.value,
+        }),
+        //...
+    }
+}
+
+```

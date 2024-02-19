@@ -3,8 +3,8 @@ use std::iter::Peekable;
 use crate::{
     ast::{
         BlockStatement, Boolean, CallExpression, Callee, Expression, FunctionLiteral, Identifier,
-        IfExpression, InfixExpression, IntegerLiteral, LetStatement, PrefixExpression, Program,
-        ReturnStatement, Statement,
+        IfExpression, InfixExpression, InfixOperator, IntegerLiteral, LetStatement,
+        PrefixExpression, Program, ReturnStatement, Statement,
     },
     lexer::Lexer,
     token::Token,
@@ -56,6 +56,17 @@ impl<'a> Parser<'a> {
         p
     }
 
+    pub fn from_str(str: &'a str) -> Parser<'a> {
+        let mut peekable_l = Lexer::new(str).peekable();
+        let cur_token = peekable_l.next().unwrap_or(Token::EOF);
+        let p = Self {
+            l: peekable_l,
+            cur_token,
+            errors: vec![],
+        };
+        p
+    }
+
     pub fn parse_program(&mut self) -> Result<Program> {
         let mut program = Program {
             // Todo: Estimate capacity required better
@@ -87,6 +98,7 @@ impl<'a> Parser<'a> {
                 Ok(Statement::ReturnStatement(s))
             }
             _ => {
+                // TODO: These statements can be without a semicolon :(
                 let s = self.parse_expression_statement()?;
                 Ok(Statement::ExpressionStatement(s))
             }
@@ -136,16 +148,23 @@ impl<'a> Parser<'a> {
             })),
             Token::Int(int_str) => {
                 let value = int_str.parse::<i64>()?;
-                Ok(Expression::Integer(IntegerLiteral { value }))
+                Ok(Expression::IntegerLiteral(IntegerLiteral { value }))
             }
             Token::True => Ok(Expression::Boolean(Boolean { value: true })),
             Token::False => Ok(Expression::Boolean(Boolean { value: false })),
-            Token::Minus | Token::Bang => {
-                let op = self.cur_token.to_string();
+            Token::Minus => {
                 self.next_token();
                 let r = self.parse_expression(Precedence::Prefix)?;
                 Ok(Expression::PrefixExpression(PrefixExpression {
-                    operator: op,
+                    operator: crate::ast::PrefixOperator::Minus,
+                    right: r.into(),
+                }))
+            }
+            Token::Bang => {
+                self.next_token();
+                let r = self.parse_expression(Precedence::Prefix)?;
+                Ok(Expression::PrefixExpression(PrefixExpression {
+                    operator: crate::ast::PrefixOperator::Bang,
                     right: r.into(),
                 }))
             }
@@ -165,7 +184,6 @@ impl<'a> Parser<'a> {
         let condition = self.parse_expression(Precedence::Lowest)?;
         self.expect_peek_rparen()?;
         let consequence = self.parse_block_statement()?;
-        dbg!("not here");
         if self.peek_token() == &Token::Else {
             self.next_token();
             let alternative = self.parse_block_statement()?;
@@ -230,7 +248,7 @@ impl<'a> Parser<'a> {
 
     fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression> {
         let precedence = precedence(&self.cur_token);
-        let op = self.cur_token.to_string();
+        let op: InfixOperator = self.cur_token.clone().try_into()?;
         self.next_token();
         let right = self.parse_expression(precedence)?;
         Ok(Expression::InfixExpression(InfixExpression {
@@ -383,10 +401,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
 
-    use crate::ast::{
-        Boolean, Callee, Expression, FunctionLiteral, Identifier, IfExpression, InfixExpression,
-        IntegerLiteral, LetStatement, PrefixExpression, Program, Statement,
-    };
+    use crate::ast::{InfixOperator, PrefixOperator};
 
     use super::*;
 
@@ -407,24 +422,24 @@ mod tests {
         }
     }
 
-    fn prefix_expression<'a>(operator: &str, value: i64) -> Program {
+    fn prefix_expression<'a>(operator: PrefixOperator, value: i64) -> Program {
         Program {
             statements: vec![Statement::ExpressionStatement(
                 Expression::PrefixExpression(PrefixExpression {
-                    operator: operator.to_string(),
-                    right: Expression::Integer(IntegerLiteral { value }).into(),
+                    operator: operator,
+                    right: Expression::IntegerLiteral(IntegerLiteral { value }).into(),
                 }),
             )],
         }
     }
 
-    fn infix_expression<'a>(left: i64, operator: &str, right: i64) -> Program {
+    fn infix_expression<'a>(left: i64, operator: InfixOperator, right: i64) -> Program {
         Program {
             statements: vec![Statement::ExpressionStatement(Expression::InfixExpression(
                 InfixExpression {
-                    left: Expression::Integer(IntegerLiteral { value: left }).into(),
-                    operator: operator.to_string(),
-                    right: Expression::Integer(IntegerLiteral { value: right }).into(),
+                    left: Expression::IntegerLiteral(IntegerLiteral { value: left }).into(),
+                    operator: operator,
+                    right: Expression::IntegerLiteral(IntegerLiteral { value: right }).into(),
                 },
             ))],
         }
@@ -468,7 +483,7 @@ mod tests {
                                     value: "x".to_string(),
                                 })
                                 .into(),
-                                operator: "+".to_string(),
+                                operator: InfixOperator::Plus,
                                 right: Expression::Identifier(Identifier {
                                     value: "y".to_string(),
                                 })
@@ -494,16 +509,16 @@ mod tests {
                         value: "add".to_string(),
                     }),
                     arguments: vec![
-                        Expression::Integer(IntegerLiteral { value: 1 }),
+                        Expression::IntegerLiteral(IntegerLiteral { value: 1 }),
                         Expression::InfixExpression(InfixExpression {
-                            left: Expression::Integer(IntegerLiteral { value: 2 }).into(),
-                            operator: "*".to_string(),
-                            right: Expression::Integer(IntegerLiteral { value: 3 }).into(),
+                            left: Expression::IntegerLiteral(IntegerLiteral { value: 2 }).into(),
+                            operator: InfixOperator::Multiply,
+                            right: Expression::IntegerLiteral(IntegerLiteral { value: 3 }).into(),
                         }),
                         Expression::InfixExpression(InfixExpression {
-                            left: Expression::Integer(IntegerLiteral { value: 4 }).into(),
-                            operator: "+".to_string(),
-                            right: Expression::Integer(IntegerLiteral { value: 5 }).into(),
+                            left: Expression::IntegerLiteral(IntegerLiteral { value: 4 }).into(),
+                            operator: InfixOperator::Plus,
+                            right: Expression::IntegerLiteral(IntegerLiteral { value: 5 }).into(),
                         }),
                     ],
                 },
@@ -522,7 +537,7 @@ mod tests {
                 IfExpression {
                     condition: Expression::InfixExpression(InfixExpression {
                         left: Expression::Identifier(Identifier::from_str("x")).into(),
-                        operator: "<".to_string(),
+                        operator: InfixOperator::Lt,
                         right: Expression::Identifier(Identifier::from_str("y")).into(),
                     })
                     .into(),
@@ -552,7 +567,7 @@ mod tests {
                 IfExpression {
                     condition: Expression::InfixExpression(InfixExpression {
                         left: Expression::Identifier(Identifier::from_str("x")).into(),
-                        operator: "<".to_string(),
+                        operator: InfixOperator::Lt,
                         right: Expression::Identifier(Identifier::from_str("y")).into(),
                     })
                     .into(),
@@ -647,7 +662,7 @@ mod tests {
         let mut parser = Parser::new(lexer);
         let parsed = parser.parse_program().unwrap();
         let expected = Program {
-            statements: vec![Statement::ExpressionStatement(Expression::Integer(
+            statements: vec![Statement::ExpressionStatement(Expression::IntegerLiteral(
                 IntegerLiteral { value: 5 },
             ))],
         };
@@ -661,7 +676,10 @@ mod tests {
             let mut parser = Parser::new(lexer);
             parser.parse_program().unwrap()
         });
-        let expected = [prefix_expression("!", 5), prefix_expression("-", 15)];
+        let expected = [
+            prefix_expression(PrefixOperator::Bang, 5),
+            prefix_expression(PrefixOperator::Minus, 15),
+        ];
         assert_eq!(parsed, expected);
     }
 
@@ -676,14 +694,14 @@ mod tests {
             parser.parse_program().unwrap()
         });
         let expected = [
-            infix_expression(5, "+", 5),
-            infix_expression(5, "-", 5),
-            infix_expression(5, "*", 5),
-            infix_expression(5, "/", 5),
-            infix_expression(5, ">", 5),
-            infix_expression(5, "<", 5),
-            infix_expression(5, "==", 5),
-            infix_expression(5, "!=", 5),
+            infix_expression(5, InfixOperator::Plus, 5),
+            infix_expression(5, InfixOperator::Minus, 5),
+            infix_expression(5, InfixOperator::Multiply, 5),
+            infix_expression(5, InfixOperator::Divide, 5),
+            infix_expression(5, InfixOperator::Gt, 5),
+            infix_expression(5, InfixOperator::Lt, 5),
+            infix_expression(5, InfixOperator::Eq, 5),
+            infix_expression(5, InfixOperator::NotEq, 5),
         ];
         assert_eq!(parsed, expected);
     }
@@ -697,7 +715,7 @@ mod tests {
                 parser.parse_program().unwrap()
             });
         let expected = [
-            return_statement(Expression::Integer(IntegerLiteral { value: 5 })),
+            return_statement(Expression::IntegerLiteral(IntegerLiteral { value: 5 })),
             return_statement(Expression::Boolean(Boolean { value: true })),
             return_statement(Expression::Identifier(Identifier {
                 value: "foobar".to_string(),
@@ -715,7 +733,7 @@ mod tests {
                 parser.parse_program().unwrap()
             });
         let expected = [
-            let_statement("x", Expression::Integer(IntegerLiteral { value: 5 })),
+            let_statement("x", Expression::IntegerLiteral(IntegerLiteral { value: 5 })),
             let_statement("y", Expression::Boolean(Boolean { value: true })),
             let_statement(
                 "foobar",

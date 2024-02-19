@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
 
-#[derive(Clone, PartialEq, strum_macros::VariantNames)]
+#[derive(Clone, PartialEq)]
 pub enum Token {
     Illegal,
     EOF,

@@ -5,6 +5,8 @@ use std::{
 
 use anyhow::anyhow;
 
+use crate::token::Token;
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct Program {
     pub statements: Vec<Statement>,
@@ -100,7 +102,7 @@ pub enum Expression {
     InfixExpression(InfixExpression),
     Identifier(Identifier),
     Boolean(Boolean),
-    Integer(IntegerLiteral),
+    IntegerLiteral(IntegerLiteral),
     FunctionLiteral(FunctionLiteral),
     Call(CallExpression),
     IfExpression(IfExpression),
@@ -123,7 +125,7 @@ impl Display for Expression {
         match self {
             Expression::Identifier(literal) => write!(f, "{}", literal.to_string()),
             Expression::Boolean(literal) => write!(f, "{}", literal.to_string()),
-            Expression::Integer(literal) => write!(f, "{}", literal.to_string()),
+            Expression::IntegerLiteral(literal) => write!(f, "{}", literal.to_string()),
             Expression::PrefixExpression(expr) => write!(f, "{}", expr.to_string()),
             Expression::InfixExpression(expr) => write!(f, "{}", expr.to_string()),
             Expression::FunctionLiteral(expr) => write!(f, "{}", expr),
@@ -155,8 +157,22 @@ impl Display for BlockStatement {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
+pub enum PrefixOperator {
+    Minus,
+    Bang,
+}
+impl Display for PrefixOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PrefixOperator::Minus => write!(f, "-"),
+            PrefixOperator::Bang => write!(f, "!"),
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct PrefixExpression {
-    pub operator: String,
+    pub operator: PrefixOperator,
     pub right: Rc<Expression>,
 }
 impl Display for PrefixExpression {
@@ -166,9 +182,58 @@ impl Display for PrefixExpression {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
+pub enum InfixOperator {
+    Minus,
+    Plus,
+    Multiply,
+    Divide,
+    Gt,
+    Lt,
+    Eq,
+    NotEq,
+}
+impl TryFrom<Token> for InfixOperator {
+    type Error = anyhow::Error;
+
+    fn try_from(value: Token) -> Result<Self, Self::Error> {
+        match value {
+            Token::Plus => Ok(InfixOperator::Plus),
+            Token::Minus => Ok(InfixOperator::Minus),
+            Token::Asterisk => Ok(InfixOperator::Multiply),
+            Token::Slash => Ok(InfixOperator::Divide),
+            Token::Lt => Ok(InfixOperator::Lt),
+            Token::Gt => Ok(InfixOperator::Gt),
+            Token::Eq => Ok(InfixOperator::Eq),
+            Token::NotEq => Ok(InfixOperator::NotEq),
+            token => Err(anyhow!(
+                "{} ({:?}) is not a valid infix operator",
+                token,
+                &token
+            )),
+        }
+    }
+}
+impl Display for InfixOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            // Maths
+            InfixOperator::Minus => write!(f, "-"),
+            InfixOperator::Plus => write!(f, "+"),
+            InfixOperator::Multiply => write!(f, "*"),
+            InfixOperator::Divide => write!(f, "/"),
+            // Boolean
+            InfixOperator::Gt => write!(f, ">"),
+            InfixOperator::Lt => write!(f, "<"),
+            InfixOperator::Eq => write!(f, "=="),
+            InfixOperator::NotEq => write!(f, "!="),
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct InfixExpression {
     pub left: Rc<Expression>,
-    pub operator: String,
+    pub operator: InfixOperator,
     pub right: Rc<Expression>,
 }
 impl Display for InfixExpression {
