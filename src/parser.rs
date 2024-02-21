@@ -187,17 +187,17 @@ impl<'a> Parser<'a> {
         if self.peek_token() == &Token::Else {
             self.next_token();
             let alternative = self.parse_block_statement()?;
-            return Ok(Expression::IfExpression(IfExpression {
+            Ok(Expression::IfExpression(IfExpression {
                 condition: condition.into(),
                 consequence,
                 alternative,
-            }));
+            }))
         } else {
-            return Ok(Expression::IfExpression(IfExpression {
+            Ok(Expression::IfExpression(IfExpression {
                 condition: condition.into(),
                 consequence,
                 alternative: BlockStatement::empty(),
-            }));
+            }))
         }
     }
 
@@ -279,7 +279,7 @@ impl<'a> Parser<'a> {
     fn parse_call_expression(&mut self, callee: Expression) -> Result<Expression> {
         let args = self.parse_call_arguments()?;
         self.expect_peek_rparen()?;
-        Ok(Expression::Call(CallExpression {
+        Ok(Expression::CallExpression(CallExpression {
             function: callee.try_into()?,
             arguments: args,
         }))
@@ -503,7 +503,7 @@ mod tests {
         let mut parser = Parser::new(lexer);
         let parsed = parser.parse_program().unwrap();
         let expected = Program {
-            statements: vec![Statement::ExpressionStatement(Expression::Call(
+            statements: vec![Statement::ExpressionStatement(Expression::CallExpression(
                 crate::ast::CallExpression {
                     function: Callee::Identifier(Identifier {
                         value: "add".to_string(),

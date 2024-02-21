@@ -33,6 +33,11 @@ pub enum Statement {
     ReturnStatement(ReturnStatement),
     ExpressionStatement(Expression),
 }
+impl Statement {
+    pub fn expression(expression: Expression) -> Statement {
+        Statement::ExpressionStatement(expression)
+    }
+}
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -104,8 +109,45 @@ pub enum Expression {
     Boolean(Boolean),
     IntegerLiteral(IntegerLiteral),
     FunctionLiteral(FunctionLiteral),
-    Call(CallExpression),
+    CallExpression(CallExpression),
     IfExpression(IfExpression),
+}
+impl Expression {
+    pub fn identifier(name: &str) -> Expression {
+        Expression::Identifier(Identifier {
+            value: name.to_string(),
+        })
+    }
+
+    pub fn boolean(value: bool) -> Expression {
+        Expression::Boolean(Boolean { value })
+    }
+
+    pub fn call(callee: Callee, arguments: Vec<Expression>) -> Expression {
+        Expression::CallExpression(CallExpression {
+            function: callee,
+            arguments,
+        })
+    }
+
+    pub fn prefix_expression(op: PrefixOperator, right: Expression) -> Expression {
+        Expression::PrefixExpression(PrefixExpression {
+            operator: op,
+            right: right.into(),
+        })
+    }
+
+    pub fn infix_expression(left: Expression, op: InfixOperator, right: Expression) -> Expression {
+        Expression::InfixExpression(InfixExpression {
+            left: left.into(),
+            operator: op,
+            right: right.into(),
+        })
+    }
+
+    pub fn integer_literal(value: i64) -> Expression {
+        Expression::IntegerLiteral(IntegerLiteral { value })
+    }
 }
 impl TryInto<Callee> for Expression {
     type Error = anyhow::Error;
@@ -129,7 +171,7 @@ impl Display for Expression {
             Expression::PrefixExpression(expr) => write!(f, "{}", expr.to_string()),
             Expression::InfixExpression(expr) => write!(f, "{}", expr.to_string()),
             Expression::FunctionLiteral(expr) => write!(f, "{}", expr),
-            Expression::Call(expr) => write!(f, "{}", expr),
+            Expression::CallExpression(expr) => write!(f, "{}", expr),
             Expression::IfExpression(expr) => write!(f, "{}", expr),
         }
     }
@@ -140,6 +182,14 @@ pub struct BlockStatement {
     pub statements: Vec<Statement>,
 }
 impl BlockStatement {
+    pub fn new(statements: Vec<Statement>) -> BlockStatement {
+        BlockStatement { statements }
+    }
+    pub fn single(statement: Statement) -> BlockStatement {
+        BlockStatement {
+            statements: vec![statement],
+        }
+    }
     pub fn empty() -> BlockStatement {
         BlockStatement {
             statements: Vec::new(),
